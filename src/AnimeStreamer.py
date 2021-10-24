@@ -145,5 +145,5 @@ choose: -c [torrent_num]""")
                 system("cls")
             
         
-streamer = AnimeStreamer(pages=2, download_path="E:\\Downloads")
+streamer = AnimeStreamer(pages=2)
 streamer.start()
