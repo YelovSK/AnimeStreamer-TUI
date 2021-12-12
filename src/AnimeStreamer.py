@@ -1,11 +1,14 @@
 from NyaaPy import Nyaa
-from os import system
+from os import system, path
 from termcolor import colored
+from rich.console import Console
+from rich.table import Table
 
 
 class AnimeStreamer:
 
     def __init__(self, pages=1, player="vlc", download_path=""):
+        self.console = Console()
         self.results = []
         self.nyaa = Nyaa
         self.show_at_once = 10
@@ -36,18 +39,16 @@ class AnimeStreamer:
 
     def list_top_results(self):
         system("cls")
-        print(colored("-"*80, "red"))
+        table = Table(title="Torrents")
+        table.add_column("Num", style="red")
+        table.add_column("Name")
+        table.add_column("Size")
+        table.add_column("Seeders")
+        table.add_column("Date")
         for i, res in enumerate(self.top_results()):
             num = i+1+(self.curr_page*self.show_at_once)
-            anime_col = "yellow" if i % 2 else "green"
-            print(
-                colored(f'{num: }', "red", attrs=["bold", "blink"]),
-                colored(f'{res["name"] }', anime_col, attrs=["bold"]),
-                colored(f'[{res["size"]}] ', "white"),
-                colored(f'[{res["seeders"]} seeders] ', "white"),
-                colored(f'[{res["date"]}]', "white")
-            )
-        print(colored("-"*80, "red"))
+            table.add_row(str(num), res["name"], res["size"], res["seeders"], res["date"])
+        self.console.print(table)
 
     def give_magnet(self, n):
         return self.results[int(n)]["magnet"]
@@ -106,6 +107,11 @@ class AnimeStreamer:
                 return
             magnet_link = self.give_magnet(selected_num)
             self.stream_magnet(magnet_link)
+        elif action == "path":
+            if path.exists(input):
+                self.download_path = input
+            else:
+                self.console.print("Path does not exist")
         return True
 
     def next_page(self):
@@ -115,35 +121,51 @@ class AnimeStreamer:
     def prev_page(self):
         if self.curr_page > 0:
             self.curr_page -= 1
+            
+    def show_help(self):
+        table = Table(title="Functions")
+        for col in ("Input", "Action", "Arguments"):
+            table.add_column(col)
+        table.add_row("-f", "find", "torrent name")
+        table.add_row("-s", "sort", "seeders/date/size/completed_downloads/leechers + asc/desc")
+        table.add_row("-p", "page", "next/prev/page_num")
+        table.add_row("-c", "choose", "torrent number")
+        table.add_row("-d", "set download path", "path or empty to show show current")
+        table.add_row("-r", "reset", "")
+        table.add_row("-h", "shows this table", "")
+        self.console.print(table)
 
     def reset(self):
         system("cls")
         self.curr_page = 0
         self.results = []
-        self.start(False)
+        self.start()
 
     def start(self):
-        action_dict = {"-f": "search", "-s": "sort", "-p": "page", "-c": "select"}
+        self.show_help()
+        action_dict = {"-f": "search", "-s": "sort", "-p": "page", "-c": "select", "-d": "path"}
         while True:
-            print("""find: -f [query]
-sort: -s [seeders/date/size/completed_downloads/leechers] [asc/desc]
-page: -p [next/prev/page_num]
-choose: -c [torrent_num]""")
             user_input = input(">> ")
             if len(user_input.split()) in (2, 3):
                 action, val = user_input.split()[0], " ".join(user_input.split()[1:])
-                if action in action_dict and (action == "-f" or self.results):
+                if action in action_dict:
                     if not self.do_input(action_dict[action], val):
                         system("cls")
                         if len(self.results):
                             self.list_top_results()
                 else:
                     system("cls")
+            elif user_input == "-h":
+                self.show_help()
+            elif user_input == "-r":
+                self.reset()
+            elif user_input == "-d":
+                self.console.print("Current path:", self.download_path)
             elif len(self.results):
                 self.list_top_results()
             else:
                 system("cls")
-            
+
         
-streamer = AnimeStreamer(pages=2)
+streamer = AnimeStreamer(pages=2, download_path="E:\\Downloads")
 streamer.start()
