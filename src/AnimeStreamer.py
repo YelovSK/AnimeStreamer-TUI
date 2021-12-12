@@ -22,6 +22,15 @@ class AnimeStreamer:
         self.curr_page = 0
         for page in range(self.pages):
             self.results.extend(self.nyaa.search(keyword=val, page=page))
+        # remove duplicates, something broke in NyaaPy I guess
+        ids = set()
+        to_remove = []
+        for r in self.results:
+            if r["id"] in ids:
+                to_remove.append(r)
+            ids.add(r["id"])
+        for r in to_remove:
+            self.results.remove(r)
 
     def sort_results(self, key, order):
         reverse = order != "asc"
@@ -29,8 +38,8 @@ class AnimeStreamer:
             size_lambda = lambda n, s: float(n)/1000 if s == "KiB" else (float(n) if s == "MiB" else float(n)*1000)
             sort_lambda = lambda d: size_lambda(d[key].split()[0], d[key].split()[1])
         else:
-            convInt = key in ["seeders", "leechers", "size", "completed_downloads"]
-            sort_lambda = (lambda d: int(d[key])) if convInt else (lambda d: d[key])
+            conv_int = key in ["seeders", "leechers", "size", "completed_downloads"]
+            sort_lambda = (lambda d: int(d[key])) if conv_int else (lambda d: d[key])
         self.results = sorted(self.results, key=sort_lambda, reverse=reverse)
         self.list_top_results()
 
@@ -112,6 +121,11 @@ class AnimeStreamer:
                 self.download_path = input
             else:
                 self.console.print("Path does not exist")
+        elif action == "pages":
+            if input in [str(i) for i in range(1, 21)]:
+                self.pages = int(input)
+            else:
+                self.console.print("Must be in range from 1 to 20")
         return True
 
     def next_page(self):
@@ -131,6 +145,7 @@ class AnimeStreamer:
         table.add_row("-p", "page", "next/prev/page_num")
         table.add_row("-c", "choose", "torrent number")
         table.add_row("-d", "set download path", "path or empty to show show current")
+        table.add_row("-pg", "pages to search", "num")
         table.add_row("-r", "reset", "")
         table.add_row("-h", "shows this table", "")
         self.console.print(table)
@@ -143,7 +158,7 @@ class AnimeStreamer:
 
     def start(self):
         self.show_help()
-        action_dict = {"-f": "search", "-s": "sort", "-p": "page", "-c": "select", "-d": "path"}
+        action_dict = {"-f": "search", "-s": "sort", "-p": "page", "-c": "select", "-d": "path", "-pg": "pages"}
         while True:
             user_input = input(">> ")
             if len(user_input.split()) in (2, 3):
@@ -167,5 +182,5 @@ class AnimeStreamer:
                 system("cls")
 
         
-streamer = AnimeStreamer(pages=2)
+streamer = AnimeStreamer(pages=3)
 streamer.start()
