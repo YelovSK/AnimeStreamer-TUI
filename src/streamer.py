@@ -1,11 +1,19 @@
 ﻿from __future__ import annotations
 import os
 import json
-from importlib import resources
+import appdirs
+from pathlib import Path
 from NyaaPy import Nyaa
 from rich.console import Console
 from rich.table import Table
 from rich.progress import track
+
+CONFIG_DIR = Path(appdirs.user_config_dir(appname="animestreamer"))
+CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+config = CONFIG_DIR / "config.json"
+if not config.exists():
+    with config.open("w") as f:
+        json.dump({"download_path": ""}, f, indent=4)
 
 
 class AnimeStreamer:
@@ -18,7 +26,7 @@ class AnimeStreamer:
         self.curr_page = 0
         self.player = "vlc"
         self.pages = 3  # number of pages searched (75 results per page)
-        with resources.open_text("src", "config.json", encoding="utf-8-sig") as f:
+        with config.open(encoding="utf-8-sig") as f:
             self.download_path = json.load(f)["download_path"]
 
     def search(self, text: str) -> None:
@@ -86,8 +94,8 @@ class AnimeStreamer:
 
     def set_download_path(self, path):
         self.download_path = path
-        with resources.open_text("src", "config.json", encoding="utf-8-sig") as f:
+        with config.open(encoding="utf-8-sig") as f:
             content = json.load(f)
         content["download_path"] = self.download_path
-        with resources.open_text("src", "config.json", "w") as f:
+        with config.open("w") as f:
             json.dump(content, f)
