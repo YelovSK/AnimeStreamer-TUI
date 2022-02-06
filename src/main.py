@@ -17,7 +17,8 @@ def cli():
 
 @cli.command()
 @click.option("-q", "--query", required=True, help="Anime to search for.")
-def find(query: str):
+def find(query: str):   # todo only one word works
+    """Searches NyaaPy for <query>."""
     streamer.search("".join(query))
     streamer.sort_results(key="seeders", reverse=True)
     console.print("You can type 'show [-p page_num]'")
@@ -25,6 +26,7 @@ def find(query: str):
 
 @cli.command()
 def sort():
+    """Prompts to select sorting key."""
     questions = [
         {
             "type": "list",
@@ -49,19 +51,23 @@ def sort():
 @cli.command()
 @click.option("-p", "--page", default=1, help="Page number to show.")
 def show(page: int):
+    """Shows found torrents. Can specify with [page]."""
     streamer.set_page(page)
     streamer.list_top_results()
 
 
 @cli.command()
 @click.option("-t", "--torrent", required=True, type=click.INT, help="Torrent to play.")
-def play(torrent: int):
-    streamer.play_torrent(torrent)
+@click.option("-p", "--player", default="mpv", help="Player to use.")
+def play(torrent: int, player: str):
+    """Starts playing selected torrent. Can specify with [player]."""
+    streamer.play_torrent(torrent, player)
 
 
 @cli.command()
 @click.option("-p", "--path", type=click.Path(exists=True), help="Path for downloading torrents.")
 def path(path):
+    """Shows current download path or sets new if provided [-p/--path]."""
     if path is None:
         console.print(streamer.get_download_path())
     else:

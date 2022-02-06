@@ -24,7 +24,6 @@ class AnimeStreamer:
         self.nyaa = Nyaa
         self.show_at_once = 10
         self.curr_page = 0
-        self.player = "vlc"
         self.pages = 3  # number of pages searched (75 results per page)
         with config.open(encoding="utf-8-sig") as f:
             self.download_path = json.load(f)["download_path"]
@@ -61,13 +60,14 @@ class AnimeStreamer:
         last_page = (len(self.results) - 1) // self.show_at_once
         self.console.print(f"Page {self.curr_page + 1}/{last_page + 1}")
 
-    def give_magnet(self, result_num: int):
-        return self.results[result_num]["magnet"]
-
-    def stream_magnet(self, magnet_link: str):
-        # default location: C:\Users\username\AppData\Local\Temp\webtorrent
+    def play_torrent(self, torrent_num: int, player: str):
+        torrent_num -= 1
+        if torrent_num not in range(len(self.results)):
+            self.console.print(f"{torrent_num + 1} is not valid")
+            return
+        magnet_link = self.results[torrent_num]["magnet"]
         path = f"-o {self.download_path}" if self.download_path else ""
-        os.system(f'webtorrent "{magnet_link}" --not-on-top --{self.player} {path}')
+        os.system(f'webtorrent "{magnet_link}" --not-on-top --{player} {path}')
 
     def set_page(self, page_num: int):
         page_num -= 1
@@ -77,14 +77,6 @@ class AnimeStreamer:
             self.curr_page = (len(self.results) - 1) // self.show_at_once
         else:
             self.curr_page = page_num
-
-    def play_torrent(self, torrent_num: int):
-        torrent_num -= 1
-        if torrent_num not in range(len(self.results)):
-            self.console.print(f"{torrent_num + 1} is not valid")
-            return
-        magnet_link = self.give_magnet(torrent_num)
-        self.stream_magnet(magnet_link)
 
     def get_download_path(self):
         if self.download_path == "":
