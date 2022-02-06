@@ -24,7 +24,7 @@ class AnimeStreamer:
         self.nyaa = Nyaa
         self.show_at_once = 10
         self.curr_page = 0
-        self.pages = 3  # number of pages searched (75 results per page)
+        self.pages = 4  # number of pages searched (75 results per page)
         with config.open(encoding="utf-8-sig") as f:
             self.download_path = json.load(f)["download_path"]
 
@@ -33,6 +33,15 @@ class AnimeStreamer:
         self.results = []
         for page in track(range(self.pages), description="Searching..."):
             self.results.extend(self.nyaa.search(keyword=text, page=page))
+        # NyaaPy gives duplicates
+        ids = set()
+        to_remove = []
+        for r in self.results:
+            if r["id"] in ids:
+                to_remove.append(r)
+            ids.add(r["id"])
+        for r in to_remove:
+            self.results.remove(r)
 
     def sort_results(self, key: str, reverse: bool = False) -> None:
         if key == "size":
