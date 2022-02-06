@@ -1,2 +1,5 @@
-termcolor==1.1.0
-NyaaPy==0.6.1
+NyaaPy~=0.6.1
+click~=8.0.3
+click_shell
+pyinquirer~=1.0.3
+rich~=10.16.1
