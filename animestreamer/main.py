@@ -4,7 +4,7 @@ from PyInquirer import prompt
 from rich.console import Console
 import click
 from click_shell import shell
-from src.streamer import AnimeStreamer
+from animestreamer.streamer import AnimeStreamer
 
 streamer = AnimeStreamer()
 console = Console()
