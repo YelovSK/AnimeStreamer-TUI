@@ -23,6 +23,7 @@ class AnimeStreamer:
         self.results = []
         self.nyaa = Nyaa
         self.show_at_once = 10
+        self.curr_page = 0
         self.pages = 4  # number of pages searched (75 results per page)
         with config.open(encoding="utf-8-sig") as f:
             self.download_path = json.load(f)["download_path"]
@@ -59,9 +60,13 @@ class AnimeStreamer:
         table.add_column("Size")
         table.add_column("Seeders")
         table.add_column("Date")
-        for i, res in enumerate(self.results):
-            table.add_row(str(i), res["name"], res["size"], res["seeders"], res["date"])
+        for i, res in enumerate(self.top_results()):
+            num = i + 1 + (self.curr_page * self.show_at_once)
+            table.add_row(str(num), res["name"], res["size"], res["seeders"], res["date"])
         return table
+
+    def top_results(self) -> list:
+        return self.results[self.curr_page * self.show_at_once:self.curr_page * self.show_at_once + self.show_at_once]
 
     def play_torrent(self, torrent_num: int, player: str):
         torrent_num -= 1
@@ -85,3 +90,13 @@ class AnimeStreamer:
         content["download_path"] = self.download_path
         with config.open("w") as f:
             json.dump(content, f)
+
+    def next_page(self):
+        self.curr_page += 1
+        if self.curr_page * self.show_at_once > len(self.results):
+            self.curr_page = (len(self.results) - 1) // self.show_at_once
+
+    def prev_page(self):
+        self.curr_page -= 1
+        if self.curr_page == -1:
+            self.curr_page = 0
