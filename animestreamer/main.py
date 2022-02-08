@@ -6,6 +6,8 @@ import click
 from click_shell import shell
 from animestreamer.streamer import AnimeStreamer
 
+from textual.app import App
+
 streamer = AnimeStreamer()
 console = Console()
 
