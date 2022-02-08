@@ -1,87 +1,131 @@
 from __future__ import annotations
 import os
-from PyInquirer import prompt
-from rich.console import Console
-import click
-from click_shell import shell
-from animestreamer.streamer import AnimeStreamer
 
+import rich.box
+from rich.align import Align
+from rich.console import Console
+# from animestreamer.streamer import AnimeStreamer
+from rich.pretty import Pretty
+
+from streamer import AnimeStreamer
+import rich
+from rich.style import Style
+from rich.panel import Panel
 from textual.app import App
+from textual.widgets import Placeholder, ScrollView
+from textual.widget import Widget
+from textual.reactive import Reactive
+from textual.message import Message
+
+from textual_inputs import TextInput
 
 streamer = AnimeStreamer()
-console = Console()
 
 
-@shell(prompt="AnimeStreamer >> ")
-def cli():
-    console.print("Type 'help' to show commands")
+class Help(Widget):
+    border_style = Reactive(Style(color="blue"))
+
+    def render(self) -> Panel:
+        content = """
+[b]h[/b] - toggles left Help sidebar
+[b]f[/b] - focuses search textbox
+[b]enter[/b] - search torrents if textbox in focus
+[b]q[/b] - quit application
+"""
+        return Panel(
+            content,
+            style=self.border_style
+        )
+
+    def on_enter(self) -> None:
+        self.set_style("green")
+
+    def on_leave(self) -> None:
+        self.set_style("blue")
+
+    def set_style(self, color: str):
+        self.border_style = Style(color=color)
 
 
-@cli.command()
-@click.option("-q", "--query", required=True, help="Anime to search for.")
-def find(query: str):   # todo only one word works
-    """Searches NyaaPy for <query>."""
-    streamer.search("".join(query))
-    streamer.sort_results(key="seeders", reverse=True)
-    console.print("You can type 'show [-p page_num]'")
+class Input(TextInput):
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_style("blue")
+
+    def on_enter(self) -> None:
+        self.set_style("green")
+
+    def on_leave(self) -> None:
+        self.set_style("blue")
+
+    def set_style(self, color: str):
+        self.border_style = Style(color=color)
 
 
-@cli.command()
-def sort():
-    """Prompts to select sorting key."""
-    questions = [
-        {
-            "type": "list",
-            "name": "key",
-            "message": "Sort by?",
-            "choices": ["seeders", "date", "size", "completed_downloads", "leechers"],
-            "filter": lambda val: val.lower()
-        },
-        {
-            "type": "list",
-            "name": "order",
-            "message": "Ascending/Descending?",
-            "choices": ["ascending", "descending"],
-            "filter": lambda val: val.lower()
-        }
-    ]
-    answers = prompt(questions)
-    key, order = answers.values()
-    streamer.sort_results(key, reverse=order == "descending")
+class TorrentResults(ScrollView):
+    border_style = Reactive(Style(color="blue"))
+
+    async def update_torrents(self):
+        await self.update(
+            Panel(
+                streamer.get_results_table(),
+                title="Torrents",
+                border_style=self.border_style
+            )
+        )
+
+    def on_enter(self) -> None:
+        self.set_style("green")
+
+    def on_leave(self) -> None:
+        self.set_style("blue")
+
+    def set_style(self, color: str):
+        self.border_style = Style(color=color)
 
 
-@cli.command()
-@click.option("-p", "--page", default=1, help="Page number to show.")
-def show(page: int):
-    """Shows found torrents. Can specify with [page]."""
-    streamer.set_page(page)
-    streamer.list_top_results()
+class AnimeStreamer(App):
+    show_help = Reactive(False)
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-@cli.command()
-@click.option("-t", "--torrent", required=True, type=click.INT, help="Torrent to play.")
-@click.option("-p", "--player", default="mpv", help="Player to use.")
-def play(torrent: int, player: str):
-    """Starts playing selected torrent. Can specify with [player]."""
-    streamer.play_torrent(torrent, player)
+    async def on_load(self, event):
+        await self.bind("q", "quit")
+        await self.bind("h", "toggle_help", "Toggle help")
+        await self.bind("f", "focus_find")
+        await self.bind("enter", "find")
 
+    async def on_mount(self) -> None:
+        self.torrent_results = TorrentResults(fluid=False)  # fluid False doesn't seem to do anything
+        self.search_input = Input(
+            name="Find torrents",
+            placeholder="torrent name",
+            title="Find torrents"
+        )
+        self.help_bar = Help()
+        await self.view.dock(self.search_input, self.torrent_results, edge="top")
+        await self.view.dock(self.help_bar, edge="left", size=40, z=1)
+        self.help_bar.layout_offset_x = -40
+        await self.torrent_results.update_torrents()
 
-@cli.command()
-@click.option("-p", "--path", type=click.Path(exists=True), help="Path for downloading torrents.")
-def path(path):
-    """Shows current download path or sets new if provided [-p/--path]."""
-    if path is None:
-        console.print(streamer.get_download_path())
-    else:
-        streamer.set_download_path(path)
-        console.print("Path set")
+    async def action_find(self):
+        if not self.search_input.has_focus:
+            return
+        streamer.search(self.search_input.value)
+        streamer.sort_results(key="seeders", reverse=True)
+        await self.torrent_results.update_torrents()
 
+    def action_toggle_help(self):
+        self.show_help = not self.show_help
 
-@cli.command()
-def clear():
-    """Clears console."""
-    os.system("cls||clear")
+    def watch_show_help(self, show_help: bool):
+        self.help_bar.animate("layout_offset_x", 0 if show_help else -40)
+
+    async def action_focus_find(self):
+        await self.search_input.focus()
 
 
 if __name__ == "__main__":
-    cli()
+    AnimeStreamer.run()

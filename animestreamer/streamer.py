@@ -23,13 +23,11 @@ class AnimeStreamer:
         self.results = []
         self.nyaa = Nyaa
         self.show_at_once = 10
-        self.curr_page = 0
         self.pages = 4  # number of pages searched (75 results per page)
         with config.open(encoding="utf-8-sig") as f:
             self.download_path = json.load(f)["download_path"]
 
     def search(self, text: str) -> None:
-        self.curr_page = 0
         self.results = []
         for page in track(range(self.pages), description="Searching..."):
             self.results.extend(self.nyaa.search(keyword=text, page=page))
@@ -52,22 +50,18 @@ class AnimeStreamer:
             sort_lambda = (lambda d: int(d[key])) if conv_int else (lambda d: d[key])
         self.results = sorted(self.results, key=sort_lambda, reverse=reverse)
 
-    def top_results(self) -> list:
-        return self.results[self.curr_page * self.show_at_once:self.curr_page * self.show_at_once + self.show_at_once]
-
-    def list_top_results(self) -> None:
-        table = Table(title="Torrents")
+    def get_results_table(self) -> Table:
+        table = Table()
+        if not self.results:
+            return table
         table.add_column("Num", style="red")
         table.add_column("Name")
         table.add_column("Size")
         table.add_column("Seeders")
         table.add_column("Date")
-        for i, res in enumerate(self.top_results()):
-            num = i + 1 + (self.curr_page * self.show_at_once)
-            table.add_row(str(num), res["name"], res["size"], res["seeders"], res["date"])
-        self.console.print(table)
-        last_page = (len(self.results) - 1) // self.show_at_once
-        self.console.print(f"Page {self.curr_page + 1}/{last_page + 1}")
+        for i, res in enumerate(self.results):
+            table.add_row(str(i), res["name"], res["size"], res["seeders"], res["date"])
+        return table
 
     def play_torrent(self, torrent_num: int, player: str):
         torrent_num -= 1
@@ -77,15 +71,6 @@ class AnimeStreamer:
         magnet_link = self.results[torrent_num]["magnet"]
         path = f"-o {self.download_path}" if self.download_path else ""
         os.system(f'webtorrent "{magnet_link}" --not-on-top --{player} {path}')
-
-    def set_page(self, page_num: int):
-        page_num -= 1
-        if page_num < 0:
-            self.curr_page = 0
-        elif page_num * self.show_at_once > len(self.results):
-            self.curr_page = (len(self.results) - 1) // self.show_at_once
-        else:
-            self.curr_page = page_num
 
     def get_download_path(self):
         if self.download_path == "":
