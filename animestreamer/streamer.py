@@ -104,3 +104,6 @@ class AnimeStreamer:
         self.curr_page -= 1
         if self.curr_page == -1:
             self.curr_page = 0
+
+    def get_page_count(self) -> int:
+        return len(self.results) // self.show_at_once

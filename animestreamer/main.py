@@ -1,34 +1,26 @@
 from __future__ import annotations
-import os
 
-import rich.box
-from rich.align import Align
-from rich.console import Console
 # from animestreamer.streamer import AnimeStreamer
-from rich.pretty import Pretty
-
 from streamer import AnimeStreamer
-import rich
+
+from rich import box
 from rich.style import Style
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+
 from textual.app import App
 from textual.widgets import Placeholder, ScrollView, Header, Footer
 from textual.widget import Widget
 from textual.reactive import Reactive
-from textual.message import Message
-
 from textual_inputs import TextInput
 
 streamer = AnimeStreamer()
 
 
 class CustomFooter(Footer):
-    """Override the default Footer for Styling"""
 
     def make_key_text(self) -> Text:
-        """Create text containing all the keys."""
         text = Text(
             style="white on rgb(98,98,98)",
             no_wrap=True,
@@ -55,7 +47,6 @@ class CustomFooter(Footer):
 
 
 class CustomHeader(Header):
-    """Override the default Header for Styling"""
 
     def __init__(self) -> None:
         super().__init__(tall=False, style=Style(color="white", bgcolor="rgb(98,98,98)"))
@@ -101,9 +92,16 @@ class Help(Widget):
 
 class Input(TextInput):
     entered = Reactive(False)
+    last_search = ""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    def search(self):
+        if self.last_search == self.value or not self.value:
+            return
+        streamer.search(self.value)
+        self.last_search = self.value
 
     def on_enter(self) -> None:
         self.enter()
@@ -130,11 +128,15 @@ class TorrentResults(Widget):
     selected_torrent = 1
 
     def render(self):
+        if streamer.results:
+            page = f"{streamer.curr_page + 1}/{streamer.get_page_count() + 1}"
+        else:
+            page = "No results"
         return Panel(
             streamer.get_results_table(selected=self.selected_torrent),
-            title="Torrents",
+            title=f"Torrents [yellow][{page}][/yellow]",
             border_style=self.border_style,
-            box=rich.box.DOUBLE if self.has_focus else rich.box.SQUARE,
+            box=box.DOUBLE if self.has_focus else box.SQUARE,
         )
 
     def next_torrent(self):
@@ -184,11 +186,12 @@ class Sort(Widget):
                 content.append(f"[bold red]{sort}[/bold red]")
             else:
                 content.append(sort)
+        order = "Desc" if self.reversed else "Asc"
         return Panel(
             "   ".join(content),
-            title="Sorting",
+            title=f"Sorting [yellow][{order}][/yellow]",
             border_style=self.border_style,
-            box=rich.box.DOUBLE if self.has_focus else rich.box.SQUARE,
+            box=box.DOUBLE if self.has_focus else box.SQUARE,
         )
 
     def next_sort(self):
@@ -245,24 +248,40 @@ class AnimeStreamer(App):
     async def on_load(self, event):
         await self.bind("q", "quit", "Quit")
         await self.bind("h", "toggle_help", "Help")
-        await self.bind("down", "next_tab_index")
-        await self.bind("up", "previous_tab_index")
+        await self.bind("enter", "enter", "Focus/Defocus form")
+        await self.bind("p", "play", "Play")
+        await self.bind("r", "reverse", "Reverse sort")
         await self.bind("left", "prev_page", "Prev page")
         await self.bind("right", "next_page", "Next page")
-        await self.bind("ctrl+i", "defocus", "Remove focus")  # tab
-        await self.bind("r", "reverse", "Reverse sort")
-        await self.bind("p", "play", "Play")
-        await self.bind("enter", "enter", "Focus form")
+        await self.bind("down", "next_tab_index")
+        await self.bind("up", "previous_tab_index")
 
     async def on_mount(self) -> None:
+        self.create_forms()
+        await self.put_forms()
+        self.forms = [self.search_input, self.sorting, self.torrent_results]
+        self.enter_current_form()
+
+    async def on_resize(self, event) -> None:
+        height = event.size.height
+        show = int((height - 15) // 1.5)    # todo literally random
+        if show <= 0:
+            show = 1
+        streamer.show_at_once = show
+        if self.torrent_results.selected_torrent > streamer.show_at_once:
+            self.torrent_results.selected_torrent = streamer.show_at_once
+
+    def create_forms(self):
         self.torrent_results = TorrentResults()
         self.search_input = Input(
             name="Find torrents",
-            placeholder="torrent name",
+            placeholder="<torrent_name>",
             title="Find torrents"
         )
         self.sorting = Sort()
         self.help_bar = Help()
+
+    async def put_forms(self):
         await self.view.dock(CustomHeader(), edge="top")
         await self.view.dock(CustomFooter(), edge="bottom")
         await self.view.dock(self.search_input, self.sorting, edge="top", size=3)
@@ -271,21 +290,21 @@ class AnimeStreamer(App):
         await self.view.dock(self.help_bar, edge="left", size=help_size, z=1)
         self.help_bar.layout_offset_x = -help_size
 
-        self.tab_index = [self.search_input, self.sorting, self.torrent_results]
-        self.enter_current_form()
-
     async def search(self):
-        streamer.search(self.search_input.value)
-        streamer.sort_results(key="seeders", reverse=True)
+        self.search_input.search()
+        self.sorting.sort()
         self.torrent_results.refresh()
 
     async def action_enter(self):
-        if self.search_input.has_focus and self.search_input.border_style == Style(color="green"):
+        if self.search_input.has_focus and self.search_input.entered:
+            await self.set_focus(None)
             await self.search()
-            # await self.torrent_results.update_torrents()
         else:
-            await self.tab_index[self.current_index].focus()
-            # await getattr(self, self.tab_index[self.current_index]).focus()
+            selected_form = self.forms[self.current_index]
+            if self.focused == selected_form:
+                await self.set_focus(None)
+            else:
+                await selected_form.focus()
 
     def action_toggle_help(self):
         self.show_help = not self.show_help
@@ -300,7 +319,7 @@ class AnimeStreamer(App):
             self.torrent_results.refresh()
         else:
             self.current_index += 1
-            if self.current_index == len(self.tab_index):
+            if self.current_index == len(self.forms):
                 self.current_index = 0
             self.enter_current_form()
 
@@ -312,7 +331,7 @@ class AnimeStreamer(App):
         else:
             self.current_index -= 1
             if self.current_index == -1:
-                self.current_index = len(self.tab_index) - 1
+                self.current_index = len(self.forms) - 1
             self.enter_current_form()
 
     async def action_prev_page(self):
@@ -330,14 +349,11 @@ class AnimeStreamer(App):
         self.torrent_results.refresh()
 
     def enter_current_form(self):
-        for i, form in enumerate(self.tab_index):
+        for i, form in enumerate(self.forms):
             if i == self.current_index:
                 form.enter()
             else:
                 form.leave()
-
-    async def action_defocus(self):
-        await self.set_focus(None)
 
     async def action_reverse(self):
         self.sorting.reverse_sort()
