@@ -51,7 +51,7 @@ class AnimeStreamer:
             sort_lambda = (lambda d: int(d[key])) if conv_int else (lambda d: d[key])
         self.results = sorted(self.results, key=sort_lambda, reverse=reverse)
 
-    def get_results_table(self) -> Table:
+    def get_results_table(self, selected: int) -> Table:
         table = Table()
         if not self.results:
             return table
@@ -62,13 +62,17 @@ class AnimeStreamer:
         table.add_column("Date")
         for i, res in enumerate(self.top_results()):
             num = i + 1 + (self.curr_page * self.show_at_once)
-            table.add_row(str(num), res["name"], res["size"], res["seeders"], res["date"])
+            if i + 1 == selected:
+                torrent_name = f"[bold red]{res['name']}[/bold red]"
+            else:
+                torrent_name = res["name"]
+            table.add_row(str(num), torrent_name, res["size"], res["seeders"], res["date"])
         return table
 
     def top_results(self) -> list:
         return self.results[self.curr_page * self.show_at_once:self.curr_page * self.show_at_once + self.show_at_once]
 
-    def play_torrent(self, torrent_num: int, player: str):
+    def play_torrent(self, torrent_num: int, player: str = "mpv"):
         torrent_num -= 1
         if torrent_num not in range(len(self.results)):
             self.console.print(f"{torrent_num + 1} is not valid")
