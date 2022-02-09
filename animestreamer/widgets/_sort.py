@@ -1,8 +1,8 @@
 ﻿from rich.panel import Panel
 from textual.reactive import Reactive
 
-from animestreamer.globals import streamer
-from animestreamer.widgets._custom_widget import CustomWidget
+from animestreamer import streamer
+from animestreamer.widgets import CustomWidget
 
 
 class Sort(CustomWidget):
@@ -21,6 +21,7 @@ class Sort(CustomWidget):
         return Panel(
             "   ".join(content),
             title=f"Sorting [yellow][{order}][/yellow]",
+            height=3,
             **self.get_style()
         )
 

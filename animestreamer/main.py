@@ -4,7 +4,7 @@ from textual.app import App
 from textual.reactive import Reactive
 
 from animestreamer.widgets import CustomHeader, Help, PathInput, Sort, TorrentInput, TorrentResults, CustomFooter
-from animestreamer.globals import streamer
+from animestreamer import streamer
 
 
 class AnimeStreamer(App):

@@ -2,7 +2,7 @@
 from textual.reactive import Reactive
 from textual_inputs import TextInput
 
-from animestreamer.globals import streamer
+from animestreamer import streamer
 
 
 class TorrentInput(TextInput):

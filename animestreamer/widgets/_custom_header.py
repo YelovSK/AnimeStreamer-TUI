@@ -2,7 +2,7 @@
 from rich.table import Table
 from textual.widgets import Header
 
-from animestreamer.globals import streamer
+from animestreamer import streamer
 
 
 class CustomHeader(Header):

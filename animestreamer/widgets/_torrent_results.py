@@ -1,8 +1,8 @@
 ﻿from rich.panel import Panel
 from textual.reactive import Reactive
 
-from animestreamer.globals import streamer
-from animestreamer.widgets._custom_widget import CustomWidget
+from animestreamer import streamer
+from animestreamer.widgets import CustomWidget
 
 
 class TorrentResults(CustomWidget):
