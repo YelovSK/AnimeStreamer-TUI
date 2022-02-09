@@ -7,18 +7,54 @@ from rich.table import Table
 from rich.text import Text
 
 from textual.app import App
-from textual.widgets import Placeholder, ScrollView, Header, Footer
+from textual.widgets import Header, Footer
 from textual.widget import Widget
 from textual.reactive import Reactive
 from textual_inputs import TextInput
 
-# from animestreamer.streamer import AnimeStreamer
-from streamer import AnimeStreamer
-
+# from animestreamer.streamer import AnimeStreamer  # package install
+from streamer import AnimeStreamer  # running from terminal
 
 streamer = AnimeStreamer()
-HIGHLIGHT_STYLE = Style(color="green")
-NORMAL_STYLE = Style(color="blue")
+
+
+def get_border_style(highlighted: bool) -> Style:
+    HIGHLIGHT_STYLE = Style(color="green")
+    NORMAL_STYLE = Style(color="blue")
+    if highlighted:
+        return HIGHLIGHT_STYLE
+    return NORMAL_STYLE
+
+
+class CustomWidget(Widget):
+    """Add custom highlighting"""
+    highlighted = Reactive(False)
+    focused = Reactive(False)
+
+    def __init__(self, focusable: bool = True):
+        super().__init__()
+        self.focusable = focusable  # eg Help sidebar shouldn't be focusable
+
+    def get_style(self) -> dict[str, Style]:
+        """Style kwargs for render() method"""
+        return {
+            "border_style": Style(color="green") if self.highlighted else Style(color="blue"),
+            "box": box.DOUBLE if self.focused else box.SQUARE
+        }
+
+    def on_enter(self) -> None:
+        if self.focusable:
+            self.highlighted = True
+
+    def on_leave(self) -> None:
+        self.highlighted = False
+
+    def on_focus(self) -> None:
+        if self.focusable:
+            self.focused = True
+
+    def on_blur(self) -> None:
+        self.focused = False
 
 
 class CustomFooter(Footer):
@@ -67,8 +103,7 @@ class CustomHeader(Header):
         return header_table
 
 
-class Help(Widget):
-    highlighted = Reactive(False)
+class Help(CustomWidget):
 
     def render(self) -> Panel:
         help_list = (
@@ -85,25 +120,16 @@ class Help(Widget):
         )
         return Panel(
             "\n\n".join(help_list),
-            border_style=HIGHLIGHT_STYLE if self.highlighted else NORMAL_STYLE
+            **self.get_style()
         )
-
-    def on_enter(self) -> None:
-        self.highlighted = True
-
-    def on_leave(self) -> None:
-        self.highlighted = False
 
 
 class Input(TextInput):
     highlighted = Reactive(False)  # highlight
     last_search = ""
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
     def render(self):
-        self.border_style = HIGHLIGHT_STYLE if self.highlighted else NORMAL_STYLE
+        self.border_style = get_border_style(highlighted=self.highlighted)
         return super(Input, self).render()
 
     def search(self):
@@ -119,9 +145,7 @@ class Input(TextInput):
         self.highlighted = False
 
 
-class TorrentResults(Widget):
-    has_focus = Reactive(False)  # focused
-    highlighted = Reactive(False)  # highlight
+class TorrentResults(CustomWidget):
     selected_torrent = Reactive(1)
 
     def render(self):
@@ -132,8 +156,7 @@ class TorrentResults(Widget):
         return Panel(
             streamer.get_results_table(selected=self.selected_torrent),
             title=f"Torrents [yellow][{page}][/yellow]",
-            border_style=HIGHLIGHT_STYLE if self.highlighted else NORMAL_STYLE,
-            box=box.DOUBLE if self.has_focus else box.SQUARE,
+            **self.get_style()
         )
 
     def play_torrent(self):
@@ -158,22 +181,8 @@ class TorrentResults(Widget):
         streamer.prev_page()
         self.refresh()
 
-    def on_enter(self) -> None:
-        self.highlighted = True
 
-    def on_leave(self) -> None:
-        self.highlighted = False
-
-    def on_focus(self) -> None:
-        self.has_focus = True
-
-    def on_blur(self) -> None:
-        self.has_focus = False
-
-
-class Sort(Widget):
-    has_focus = Reactive(False)  # focused
-    highlighted = Reactive(False)  # highlight
+class Sort(CustomWidget):
     sorts = ("seeders", "date", "size", "completed_downloads", "leechers")
     sort_ix = Reactive(0)
     reversed = Reactive(True)
@@ -189,8 +198,7 @@ class Sort(Widget):
         return Panel(
             "   ".join(content),
             title=f"Sorting [yellow][{order}][/yellow]",
-            border_style=HIGHLIGHT_STYLE if self.highlighted else NORMAL_STYLE,
-            box=box.DOUBLE if self.has_focus else box.SQUARE,
+            **self.get_style()
         )
 
     def next_sort(self) -> None:
@@ -213,29 +221,10 @@ class Sort(Widget):
     def get_current_sort(self) -> str:
         return self.sorts[self.sort_ix]
 
-    def on_enter(self) -> None:
-        self.highlighted = True
-
-    def on_leave(self) -> None:
-        self.highlighted = False
-
-    def on_focus(self) -> None:
-        self.has_focus = True
-
-    def on_blur(self) -> None:
-        self.has_focus = False
-
 
 class AnimeStreamer(App):
     show_help = Reactive(False)
-    current_index = 0  # index of highlighted form
-
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    def on_key(self, event):
-        """Keys input"""
-        pass
+    current_index = Reactive(0)  # index of highlighted form
 
     async def on_load(self, event):
         """Bind keys on startup"""
@@ -253,7 +242,7 @@ class AnimeStreamer(App):
         """On startup"""
         await self.create_forms()
         await self.create_layout()
-        self.forms = [self.search_input, self.sorting, self.torrent_results]
+        self.forms = (self.search_input, self.sorting, self.torrent_results)
         await self.enter_current_form()
 
     async def on_resize(self, event) -> None:
@@ -275,7 +264,7 @@ class AnimeStreamer(App):
             title="Find torrents"
         )
         self.sorting = Sort()
-        self.help_bar = Help()
+        self.help_bar = Help(focusable=False)
 
     async def create_layout(self):
         """Puts forms into layout"""
@@ -308,10 +297,7 @@ class AnimeStreamer(App):
     async def action_toggle_help(self):
         """Toggles help shown/hidden"""
         self.show_help = not self.show_help
-
-    async def watch_show_help(self, show_help: bool):
-        """Animates help sidebar"""
-        self.help_bar.animate("layout_offset_x", 0 if show_help else -40)
+        self.help_bar.animate("layout_offset_x", 0 if self.show_help else -40)
 
     async def action_down(self) -> None:
         """Highlights next form or selects next Torrent (down arrow)"""
@@ -333,6 +319,11 @@ class AnimeStreamer(App):
                 self.current_index = len(self.forms) - 1
             await self.enter_current_form()
 
+    async def enter_current_form(self):
+        """Highlights form with green outline"""
+        for i, form in enumerate(self.forms):
+            form.highlighted = i == self.current_index
+
     async def action_left(self):
         """Previous Torrent page or previous sorting (left arrow)"""
         if self.focused == self.torrent_results:
@@ -348,11 +339,6 @@ class AnimeStreamer(App):
         elif self.focused == self.sorting:
             self.sorting.next_sort()
             self.torrent_results.refresh()
-
-    async def enter_current_form(self):
-        """Highlights form with green outline"""
-        for i, form in enumerate(self.forms):
-            form.highlighted = i == self.current_index
 
     async def action_reverse(self):
         """Sorting asc/desc reverse"""
