@@ -2,8 +2,11 @@
 import os
 import json
 import appdirs
+from shutil import which
 from pathlib import Path
+
 from NyaaPy import Nyaa
+
 from rich.console import Console
 from rich.table import Table
 from rich.progress import track
@@ -27,6 +30,10 @@ class AnimeStreamer:
         self.pages = 4  # number of pages searched (75 results per page)
         with config.open(encoding="utf-8-sig") as f:
             self.download_path = json.load(f)["download_path"]
+
+    @staticmethod
+    def is_webtorrent_installed() -> bool:
+        return which("webtorrent") is not None
 
     def search(self, text: str) -> None:
         self.results = []
@@ -81,10 +88,9 @@ class AnimeStreamer:
         return self.results[self.curr_page * self.show_at_once:self.curr_page * self.show_at_once + self.show_at_once]
 
     def play_torrent(self, torrent_num: int, player: str = "mpv") -> None:
-        torrent_num -= 1
-        if torrent_num not in range(len(self.results)):
-            self.console.print(f"{torrent_num + 1} is not valid")
+        if not self.results or not self.is_webtorrent_installed():
             return
+        torrent_num -= 1
         magnet_link = self.results[torrent_num]["magnet"]
         path = f"-o {self.download_path}" if self.download_path else ""
         os.system(f'webtorrent "{magnet_link}" --not-on-top --{player} {path}')
