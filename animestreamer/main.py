@@ -3,13 +3,7 @@ from __future__ import annotations
 from textual.app import App
 from textual.reactive import Reactive
 
-from animestreamer.widgets.custom_header import CustomHeader
-from animestreamer.widgets.help import Help
-from animestreamer.widgets.path_input import PathInput
-from animestreamer.widgets.sort import Sort
-from animestreamer.widgets.torrent_input import TorrentInput
-from animestreamer.widgets.torrent_results import TorrentResults
-from animestreamer.widgets.custom_footer import CustomFooter
+from animestreamer.widgets import CustomHeader, Help, PathInput, Sort, TorrentInput, TorrentResults, CustomFooter
 from animestreamer.globals import streamer
 
 

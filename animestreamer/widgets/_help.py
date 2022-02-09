@@ -1,6 +1,6 @@
 ﻿from rich.panel import Panel
 
-from animestreamer.widgets.custom_widget import CustomWidget
+from animestreamer.widgets._custom_widget import CustomWidget
 
 
 class Help(CustomWidget):

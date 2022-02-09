@@ -2,7 +2,7 @@
 from textual.reactive import Reactive
 
 from animestreamer.globals import streamer
-from animestreamer.widgets.custom_widget import CustomWidget
+from animestreamer.widgets._custom_widget import CustomWidget
 
 
 class TorrentResults(CustomWidget):
