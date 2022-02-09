@@ -18,7 +18,7 @@ if not config.exists():
 
 class AnimeStreamer:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.console = Console()
         self.results = []
         self.nyaa = Nyaa
@@ -43,15 +43,22 @@ class AnimeStreamer:
             self.results.remove(r)
 
     def sort_results(self, key: str, reverse: bool = False) -> None:
+        """keys: seeders, date, size, completed_downloads, leechers"""
         if key == "size":
-            size_lambda = lambda n, s: float(n) / 1000 if s == "KiB" else (float(n) if s == "MiB" else float(n) * 1000)
-            sort_lambda = lambda d: size_lambda(d[key].split()[0], d[key].split()[1])
+            size_dict = {
+                "KiB": 1,
+                "MiB": 1_000,
+                "GiB": 1_000_000
+            }
+            sort_lambda = lambda d: size_dict[d[key].split()[1]] * float(d[key].split()[0])
+        elif key == "date":
+            sort_lambda = lambda d: d[key]
         else:
-            conv_int = key in ["seeders", "leechers", "size", "completed_downloads"]
-            sort_lambda = (lambda d: int(d[key])) if conv_int else (lambda d: d[key])
+            sort_lambda = lambda d: int(d[key])
         self.results = sorted(self.results, key=sort_lambda, reverse=reverse)
 
     def get_results_table(self, selected: int) -> Table:
+        """Returns a table of torrents from the current page."""
         table = Table()
         if not self.results:
             return table
@@ -70,9 +77,10 @@ class AnimeStreamer:
         return table
 
     def top_results(self) -> list:
+        """Returns 'show_at_once' results from the current page"""
         return self.results[self.curr_page * self.show_at_once:self.curr_page * self.show_at_once + self.show_at_once]
 
-    def play_torrent(self, torrent_num: int, player: str = "mpv"):
+    def play_torrent(self, torrent_num: int, player: str = "mpv") -> None:
         torrent_num -= 1
         if torrent_num not in range(len(self.results)):
             self.console.print(f"{torrent_num + 1} is not valid")
@@ -81,29 +89,31 @@ class AnimeStreamer:
         path = f"-o {self.download_path}" if self.download_path else ""
         os.system(f'webtorrent "{magnet_link}" --not-on-top --{player} {path}')
 
-    def get_download_path(self):
+    def get_download_path(self) -> str:
         if self.download_path == "":
             return "Default (depends on the OS)"
         else:
             return self.download_path
 
-    def set_download_path(self, path):
+    def set_download_path(self, path: str) -> bool:
+        """Returns True if set, False if not set."""
+        if not os.path.exists(path):
+            return False
         self.download_path = path
         with config.open(encoding="utf-8-sig") as f:
             content = json.load(f)
         content["download_path"] = self.download_path
         with config.open("w") as f:
             json.dump(content, f)
+        return True
 
-    def next_page(self):
-        self.curr_page += 1
-        if self.curr_page * self.show_at_once > len(self.results):
-            self.curr_page = (len(self.results) - 1) // self.show_at_once
+    def next_page(self) -> None:
+        if self.curr_page < self.get_page_count():
+            self.curr_page += 1
 
-    def prev_page(self):
-        self.curr_page -= 1
-        if self.curr_page == -1:
-            self.curr_page = 0
+    def prev_page(self) -> None:
+        if self.curr_page > 0:
+            self.curr_page -= 1
 
     def get_page_count(self) -> int:
         return len(self.results) // self.show_at_once

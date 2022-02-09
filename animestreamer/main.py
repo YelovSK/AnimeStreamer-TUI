@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-# from animestreamer.streamer import AnimeStreamer
-from streamer import AnimeStreamer
-
 from rich import box
 from rich.style import Style
 from rich.panel import Panel
@@ -15,12 +12,19 @@ from textual.widget import Widget
 from textual.reactive import Reactive
 from textual_inputs import TextInput
 
+# from animestreamer.streamer import AnimeStreamer
+from streamer import AnimeStreamer
+
+
 streamer = AnimeStreamer()
+HIGHLIGHT_STYLE = Style(color="green")
+NORMAL_STYLE = Style(color="blue")
 
 
 class CustomFooter(Footer):
 
     def make_key_text(self) -> Text:
+        """Override for styling and show only keys with description"""
         text = Text(
             style="white on rgb(98,98,98)",
             no_wrap=True,
@@ -52,6 +56,7 @@ class CustomHeader(Header):
         super().__init__(tall=False, style=Style(color="white", bgcolor="rgb(98,98,98)"))
 
     def render(self) -> Table:
+        """Override for title"""
         header_table = Table.grid(padding=(0, 1), expand=True)
         header_table.add_column(justify="left", ratio=0, width=8)
         header_table.add_column("title", justify="center", ratio=1)
@@ -63,7 +68,7 @@ class CustomHeader(Header):
 
 
 class Help(Widget):
-    entered = Reactive(False)
+    highlighted = Reactive(False)
 
     def render(self) -> Panel:
         help_list = (
@@ -80,22 +85,26 @@ class Help(Widget):
         )
         return Panel(
             "\n\n".join(help_list),
-            border_style=Style(color="green") if self.entered else Style(color="blue")
+            border_style=HIGHLIGHT_STYLE if self.highlighted else NORMAL_STYLE
         )
 
     def on_enter(self) -> None:
-        self.entered = True
+        self.highlighted = True
 
     def on_leave(self) -> None:
-        self.entered = False
+        self.highlighted = False
 
 
 class Input(TextInput):
-    entered = Reactive(False)
+    highlighted = Reactive(False)  # highlight
     last_search = ""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
+    def render(self):
+        self.border_style = HIGHLIGHT_STYLE if self.highlighted else NORMAL_STYLE
+        return super(Input, self).render()
 
     def search(self):
         if self.last_search == self.value or not self.value:
@@ -104,28 +113,16 @@ class Input(TextInput):
         self.last_search = self.value
 
     def on_enter(self) -> None:
-        self.enter()
+        self.highlighted = True
 
     def on_leave(self) -> None:
-        self.leave()
-
-    def enter(self):
-        self.entered = True
-        self.set_style()
-
-    def leave(self):
-        self.entered = False
-        self.set_style()
-
-    def set_style(self):
-        self.border_style = Style(color="green") if self.entered else Style(color="blue")
+        self.highlighted = False
 
 
 class TorrentResults(Widget):
-    has_focus = Reactive(False)
-    entered = Reactive(False)
-    border_style = Reactive(Style(color="blue"))
-    selected_torrent = 1
+    has_focus = Reactive(False)  # focused
+    highlighted = Reactive(False)  # highlight
+    selected_torrent = Reactive(1)
 
     def render(self):
         if streamer.results:
@@ -135,9 +132,15 @@ class TorrentResults(Widget):
         return Panel(
             streamer.get_results_table(selected=self.selected_torrent),
             title=f"Torrents [yellow][{page}][/yellow]",
-            border_style=self.border_style,
+            border_style=HIGHLIGHT_STYLE if self.highlighted else NORMAL_STYLE,
             box=box.DOUBLE if self.has_focus else box.SQUARE,
         )
+
+    def play_torrent(self):
+        if not streamer.results:
+            return
+        torrent_num = self.selected_torrent + (streamer.curr_page * streamer.show_at_once)
+        streamer.play_torrent(torrent_num)
 
     def next_torrent(self):
         if self.selected_torrent < streamer.show_at_once:
@@ -147,22 +150,19 @@ class TorrentResults(Widget):
         if self.selected_torrent > 1:
             self.selected_torrent -= 1
 
+    def next_page(self):
+        streamer.next_page()
+        self.refresh()
+
+    def prev_page(self):
+        streamer.prev_page()
+        self.refresh()
+
     def on_enter(self) -> None:
-        self.enter()
+        self.highlighted = True
 
     def on_leave(self) -> None:
-        self.leave()
-
-    def enter(self):
-        self.entered = True
-        self.set_style()
-
-    def leave(self):
-        self.entered = False
-        self.set_style()
-
-    def set_style(self):
-        self.border_style = Style(color="green") if self.entered else Style(color="blue")
+        self.highlighted = False
 
     def on_focus(self) -> None:
         self.has_focus = True
@@ -172,14 +172,13 @@ class TorrentResults(Widget):
 
 
 class Sort(Widget):
-    has_focus = Reactive(False)
-    entered = Reactive(False)
-    border_style = Reactive(Style(color="blue"))
+    has_focus = Reactive(False)  # focused
+    highlighted = Reactive(False)  # highlight
     sorts = ("seeders", "date", "size", "completed_downloads", "leechers")
     sort_ix = Reactive(0)
     reversed = Reactive(True)
 
-    def render(self):
+    def render(self) -> Panel:
         content = []
         for ix, sort in enumerate(self.sorts):
             if ix == self.sort_ix:
@@ -190,43 +189,35 @@ class Sort(Widget):
         return Panel(
             "   ".join(content),
             title=f"Sorting [yellow][{order}][/yellow]",
-            border_style=self.border_style,
+            border_style=HIGHLIGHT_STYLE if self.highlighted else NORMAL_STYLE,
             box=box.DOUBLE if self.has_focus else box.SQUARE,
         )
 
-    def next_sort(self):
+    def next_sort(self) -> None:
         if self.sort_ix < len(self.sorts) - 1:
             self.sort_ix += 1
             self.sort()
 
-    def prev_sort(self):
+    def prev_sort(self) -> None:
         if self.sort_ix > 0:
             self.sort_ix -= 1
             self.sort()
 
-    def reverse_sort(self):
+    def reverse_sort(self) -> None:
         self.reversed = not self.reversed
         self.sort()
 
-    def sort(self):
-        streamer.sort_results(key=self.sorts[self.sort_ix], reverse=self.reversed)
+    def sort(self) -> None:
+        streamer.sort_results(key=self.get_current_sort(), reverse=self.reversed)
+
+    def get_current_sort(self) -> str:
+        return self.sorts[self.sort_ix]
 
     def on_enter(self) -> None:
-        self.enter()
+        self.highlighted = True
 
     def on_leave(self) -> None:
-        self.leave()
-
-    def enter(self):
-        self.entered = True
-        self.set_style()
-
-    def leave(self):
-        self.entered = False
-        self.set_style()
-
-    def set_style(self):
-        self.border_style = Style(color="green") if self.entered else Style(color="blue")
+        self.highlighted = False
 
     def on_focus(self) -> None:
         self.has_focus = True
@@ -237,41 +228,46 @@ class Sort(Widget):
 
 class AnimeStreamer(App):
     show_help = Reactive(False)
-    current_index = 0
+    current_index = 0  # index of highlighted form
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def on_key(self, event):
+        """Keys input"""
         pass
 
     async def on_load(self, event):
+        """Bind keys on startup"""
         await self.bind("q", "quit", "Quit")
         await self.bind("h", "toggle_help", "Help")
         await self.bind("enter", "enter", "Focus/Defocus form")
         await self.bind("p", "play", "Play")
         await self.bind("r", "reverse", "Reverse sort")
-        await self.bind("left", "prev_page", "Prev page")
-        await self.bind("right", "next_page", "Next page")
-        await self.bind("down", "next_tab_index")
-        await self.bind("up", "previous_tab_index")
+        await self.bind("left", "left", "Prev page")
+        await self.bind("right", "right", "Next page")
+        await self.bind("down", "down")
+        await self.bind("up", "up")
 
     async def on_mount(self) -> None:
-        self.create_forms()
-        await self.put_forms()
+        """On startup"""
+        await self.create_forms()
+        await self.create_layout()
         self.forms = [self.search_input, self.sorting, self.torrent_results]
-        self.enter_current_form()
+        await self.enter_current_form()
 
     async def on_resize(self, event) -> None:
+        """Changes number of Torrents showed based on the terminal size"""
         height = event.size.height
-        show = int((height - 15) // 1.5)    # todo literally random
+        show = int((height - 16) // 1.5)  # todo literally random
         if show <= 0:
             show = 1
         streamer.show_at_once = show
         if self.torrent_results.selected_torrent > streamer.show_at_once:
             self.torrent_results.selected_torrent = streamer.show_at_once
 
-    def create_forms(self):
+    async def create_forms(self):
+        """Creates forms"""
         self.torrent_results = TorrentResults()
         self.search_input = Input(
             name="Find torrents",
@@ -281,7 +277,8 @@ class AnimeStreamer(App):
         self.sorting = Sort()
         self.help_bar = Help()
 
-    async def put_forms(self):
+    async def create_layout(self):
+        """Puts forms into layout"""
         await self.view.dock(CustomHeader(), edge="top")
         await self.view.dock(CustomFooter(), edge="bottom")
         await self.view.dock(self.search_input, self.sorting, edge="top", size=3)
@@ -291,82 +288,86 @@ class AnimeStreamer(App):
         self.help_bar.layout_offset_x = -help_size
 
     async def search(self):
+        """Searches Torrents"""
         self.search_input.search()
         self.sorting.sort()
         self.torrent_results.refresh()
 
     async def action_enter(self):
-        if self.search_input.has_focus and self.search_input.entered:
+        """Focuses form or searches Torrent"""
+        if self.search_input.has_focus and self.search_input.highlighted:
             await self.set_focus(None)
             await self.search()
         else:
-            selected_form = self.forms[self.current_index]
-            if self.focused == selected_form:
+            highlighted_form = self.forms[self.current_index]
+            if self.focused == highlighted_form:
                 await self.set_focus(None)
             else:
-                await selected_form.focus()
+                await highlighted_form.focus()
 
-    def action_toggle_help(self):
+    async def action_toggle_help(self):
+        """Toggles help shown/hidden"""
         self.show_help = not self.show_help
 
-    def watch_show_help(self, show_help: bool):
+    async def watch_show_help(self, show_help: bool):
+        """Animates help sidebar"""
         self.help_bar.animate("layout_offset_x", 0 if show_help else -40)
 
-    async def action_next_tab_index(self) -> None:
-        """Changes the focus to the next form field"""
+    async def action_down(self) -> None:
+        """Highlights next form or selects next Torrent (down arrow)"""
         if self.focused == self.torrent_results:
             self.torrent_results.next_torrent()
-            self.torrent_results.refresh()
         else:
             self.current_index += 1
             if self.current_index == len(self.forms):
                 self.current_index = 0
-            self.enter_current_form()
+            await self.enter_current_form()
 
-    async def action_previous_tab_index(self) -> None:
-        """Changes the focus to the previous form field"""
+    async def action_up(self) -> None:
+        """Highlights previous form or selects previous Torrent (up arrow)"""
         if self.focused == self.torrent_results:
             self.torrent_results.prev_torrent()
-            self.torrent_results.refresh()
         else:
             self.current_index -= 1
             if self.current_index == -1:
                 self.current_index = len(self.forms) - 1
-            self.enter_current_form()
+            await self.enter_current_form()
 
-    async def action_prev_page(self):
+    async def action_left(self):
+        """Previous Torrent page or previous sorting (left arrow)"""
         if self.focused == self.torrent_results:
-            streamer.prev_page()
+            self.torrent_results.prev_page()
         elif self.focused == self.sorting:
             self.sorting.prev_sort()
-        self.torrent_results.refresh()
+            self.torrent_results.refresh()
 
-    async def action_next_page(self):
+    async def action_right(self):
+        """Next Torrent page or next sorting (right arrow)"""
         if self.focused == self.torrent_results:
-            streamer.next_page()
+            self.torrent_results.next_page()
         elif self.focused == self.sorting:
             self.sorting.next_sort()
-        self.torrent_results.refresh()
+            self.torrent_results.refresh()
 
-    def enter_current_form(self):
+    async def enter_current_form(self):
+        """Highlights form with green outline"""
         for i, form in enumerate(self.forms):
-            if i == self.current_index:
-                form.enter()
-            else:
-                form.leave()
+            form.highlighted = i == self.current_index
 
     async def action_reverse(self):
+        """Sorting asc/desc reverse"""
         self.sorting.reverse_sort()
         self.torrent_results.refresh()
 
     async def action_play(self):
-        if not streamer.results:
-            return
-        torrent_num = self.torrent_results.selected_torrent
-        torrent_num += streamer.curr_page * streamer.show_at_once
-        streamer.play_torrent(torrent_num)
+        """Starts playing selected Torrent"""
+        self.torrent_results.play_torrent()
         self.refresh()
 
 
-if __name__ == "__main__":
+def run():
     AnimeStreamer.run()
+
+
+if __name__ == "__main__":
+    run()
