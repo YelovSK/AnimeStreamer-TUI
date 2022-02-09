@@ -1,4 +1,6 @@
-﻿from rich.style import Style
+﻿import os
+
+from rich.style import Style
 from textual.reactive import Reactive
 from textual_inputs import TextInput
 

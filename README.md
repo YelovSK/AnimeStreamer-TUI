@@ -1,8 +1,11 @@
+# WIP
+Currently converting from Click CLI to Textual TUI.
+
 # AnimeStreamer-CLI
-CLI for searching through https://nyaa.si/ and streaming torrents via WebTorrent.
+TUI for searching through https://nyaa.si/ and streaming torrents via WebTorrent.
 
 ## Dependencies
-webtorrent-cli: https://github.com/webtorrent/webtorrent-cli: => `npm install webtorrent-cli -g`
+webtorrent-cli: https://github.com/webtorrent/webtorrent-cli => `npm install webtorrent-cli -g`
 
 
 ## Install and run
@@ -10,4 +13,4 @@ webtorrent-cli: https://github.com/webtorrent/webtorrent-cli: => `npm install we
 2. `animestreamer`
 
 ## Usage
-Type `help` or `help [command]` after starting the application.
+TODO
