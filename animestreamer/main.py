@@ -1,4 +1,5 @@
 from __future__ import annotations
+from logging import PlaceHolder
 
 from textual.app import App
 from textual.reactive import Reactive
@@ -11,15 +12,18 @@ class AnimeStreamer(App):
     show_help = Reactive(False)
     current_index = Reactive(0)  # index of highlighted form
 
+    def on_key(self, event):
+        pass
+
     async def on_load(self, event):
         """Bind keys on startup"""
         await self.bind("q", "quit", "Quit")
         await self.bind("h", "toggle_help", "Help")
-        await self.bind("enter", "enter", "Focus/Defocus form")
-        await self.bind("p", "play", "Play")
+        await self.bind("enter", "enter", "Focus form / Confirm")
+        await self.bind("escape", "escape", "Defocus")
         await self.bind("r", "reverse", "Reverse sort")
-        await self.bind("left", "left", "Prev page")
-        await self.bind("right", "right", "Next page")
+        await self.bind("left", "left")
+        await self.bind("right", "right")
         await self.bind("down", "down")
         await self.bind("up", "up")
 
@@ -50,6 +54,7 @@ class AnimeStreamer(App):
         )
         self.path_input = PathInput(
             name="Download path",
+            value=streamer.get_download_path(),
             title="Download path"
         )
         self.sorting = Sort()
@@ -70,21 +75,22 @@ class AnimeStreamer(App):
         self.search_input.search()
         self.sorting.sort()
         self.torrent_results.refresh()
+        self.refresh()
 
     async def action_enter(self):
         """Focuses form or searches Torrent"""
         if self.search_input.has_focus and self.search_input.highlighted:
-            await self.set_focus(None)
             await self.search()
         elif self.path_input.has_focus and self.path_input.highlighted:
             if not self.path_input.set_path():
                 await self.action_bell()
-        else:
+        elif self.torrent_results.focused:
+            await self.play()
+        elif self.sorting.focused:
+            await self.action_reverse()
+        elif self.focused is None:
             highlighted_form = self.forms[self.current_index]
-            if self.focused == highlighted_form:
-                await self.set_focus(None)
-            else:
-                await highlighted_form.focus()
+            await highlighted_form.focus()
 
     async def action_toggle_help(self):
         """Toggles help shown/hidden"""
@@ -95,7 +101,7 @@ class AnimeStreamer(App):
         """Highlights next form or selects next Torrent (down arrow)"""
         if self.focused == self.torrent_results:
             self.torrent_results.next_torrent()
-        else:
+        elif self.focused is None:
             self.current_index += 1
             if self.current_index == len(self.forms):
                 self.current_index = 0
@@ -105,7 +111,7 @@ class AnimeStreamer(App):
         """Highlights previous form or selects previous Torrent (up arrow)"""
         if self.focused == self.torrent_results:
             self.torrent_results.prev_torrent()
-        else:
+        elif self.focused is None:
             self.current_index -= 1
             if self.current_index == -1:
                 self.current_index = len(self.forms) - 1
@@ -137,13 +143,18 @@ class AnimeStreamer(App):
         self.sorting.reverse_sort()
         self.torrent_results.refresh()
 
-    async def action_play(self):
+    async def play(self):
         """Starts playing selected Torrent"""
         if not streamer.is_webtorrent_installed():
             await self.action_bell()
             return
         self.torrent_results.play_torrent()
         self.refresh()
+    
+    async def action_escape(self):
+        self.search_input.set_current_search()
+        self.path_input.set_current_path()
+        await self.set_focus(None)
 
 
 def run():

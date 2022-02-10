@@ -96,10 +96,7 @@ class AnimeStreamer:
         os.system(f'webtorrent "{magnet_link}" --not-on-top --{player} {path}')
 
     def get_download_path(self) -> str:
-        if self.download_path == "":
-            return "Default (depends on the OS)"
-        else:
-            return self.download_path
+        return self.download_path
 
     def set_download_path(self, path: str) -> bool:
         """Returns True if set, False if not set."""

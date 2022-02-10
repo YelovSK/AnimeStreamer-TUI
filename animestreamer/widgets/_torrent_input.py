@@ -19,6 +19,10 @@ class TorrentInput(TextInput):
         streamer.search(self.value)
         self.last_search = self.value
 
+    def set_current_search(self):
+        if self.value != self.last_search:
+            self.value = self.last_search
+
     def on_enter(self) -> None:
         self.highlighted = True
 

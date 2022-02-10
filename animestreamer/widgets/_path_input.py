@@ -13,7 +13,8 @@ class PathInput(TextInput):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.value = self.path
+        if streamer.get_download_path() == "":
+            self.placeholder = "Default (depends on the OS)"
 
     def render(self):
         self.border_style = self.border_style = Style(color="green") if self.highlighted else Style(color="blue")
@@ -25,8 +26,12 @@ class PathInput(TextInput):
             streamer.set_download_path(self.value)
             return True
         else:
-            self.value = streamer.get_download_path()
+            self.set_current_path()
             return False
+
+    def set_current_path(self):
+        if self.value != streamer.get_download_path():
+            self.value = streamer.get_download_path()
 
     def on_enter(self) -> None:
         self.highlighted = True
