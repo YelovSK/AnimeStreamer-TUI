@@ -2,8 +2,12 @@
 import os
 import json
 import appdirs
+import anitopy
+from shutil import which
 from pathlib import Path
+
 from NyaaPy import Nyaa
+
 from rich.console import Console
 from rich.table import Table
 from rich.progress import track
@@ -18,18 +22,21 @@ if not config.exists():
 
 class AnimeStreamer:
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.console = Console()
         self.results = []
         self.nyaa = Nyaa
         self.show_at_once = 10
         self.curr_page = 0
-        self.pages = 4  # number of pages searched (75 results per page)
+        self.pages = 6  # number of pages searched (75 results per page)
         with config.open(encoding="utf-8-sig") as f:
             self.download_path = json.load(f)["download_path"]
 
+    @staticmethod
+    def is_webtorrent_installed() -> bool:
+        return which("webtorrent") is not None
+
     def search(self, text: str) -> None:
-        self.curr_page = 0
         self.results = []
         for page in track(range(self.pages), description="Searching..."):
             self.results.extend(self.nyaa.search(keyword=text, page=page))
@@ -44,19 +51,25 @@ class AnimeStreamer:
             self.results.remove(r)
 
     def sort_results(self, key: str, reverse: bool = False) -> None:
+        """keys: seeders, date, size, completed_downloads, leechers"""
         if key == "size":
-            size_lambda = lambda n, s: float(n) / 1000 if s == "KiB" else (float(n) if s == "MiB" else float(n) * 1000)
-            sort_lambda = lambda d: size_lambda(d[key].split()[0], d[key].split()[1])
+            size_dict = {
+                "KiB": 1,
+                "MiB": 1_000,
+                "GiB": 1_000_000
+            }
+            sort_lambda = lambda d: size_dict[d[key].split()[1]] * float(d[key].split()[0])
+        elif key == "date":
+            sort_lambda = lambda d: d[key]
         else:
-            conv_int = key in ["seeders", "leechers", "size", "completed_downloads"]
-            sort_lambda = (lambda d: int(d[key])) if conv_int else (lambda d: d[key])
+            sort_lambda = lambda d: int(d[key])
         self.results = sorted(self.results, key=sort_lambda, reverse=reverse)
 
-    def top_results(self) -> list:
-        return self.results[self.curr_page * self.show_at_once:self.curr_page * self.show_at_once + self.show_at_once]
-
-    def list_top_results(self) -> None:
-        table = Table(title="Torrents")
+    def get_results_table(self, selected: int, parsed: bool) -> Table:
+        """Returns a table of torrents from the current page."""
+        table = Table()
+        if not self.results:
+            return table
         table.add_column("Num", style="red")
         table.add_column("Name")
         table.add_column("Size")
@@ -64,39 +77,79 @@ class AnimeStreamer:
         table.add_column("Date")
         for i, res in enumerate(self.top_results()):
             num = i + 1 + (self.curr_page * self.show_at_once)
-            table.add_row(str(num), res["name"], res["size"], res["seeders"], res["date"])
-        self.console.print(table)
-        last_page = (len(self.results) - 1) // self.show_at_once
-        self.console.print(f"Page {self.curr_page + 1}/{last_page + 1}")
+            title = self.parse_torrent(res["name"]) if parsed else res["name"]
+            if i + 1 == selected:
+                torrent_name = self.colored(title, "bold red")
+            else:
+                torrent_name = title
+            table.add_row(str(num), torrent_name, res["size"], res["seeders"], res["date"])
+        return table
 
-    def play_torrent(self, torrent_num: int, player: str):
-        torrent_num -= 1
-        if torrent_num not in range(len(self.results)):
-            self.console.print(f"{torrent_num + 1} is not valid")
+    def parse_torrent(self, name: str) -> str:
+        parsed = anitopy.parse(name)
+        keys = {    # key: (colour, prefix, suffix)
+            "anime_title": (None, "", ""),
+            "anime_season": ("yellow", "[S", "]"),
+            "episode_number": ("yellow", "[E", "]"),
+            "video_resolution": ("green", "[", "]"),
+            "video_term": ("green", "[", "]"),
+            "release_group": ("blue", "[", "]")
+        }
+        info = []
+        for key, formatting in keys.items():
+            if key not in parsed:
+                continue
+            colour, prefix, suffix = formatting
+            value = parsed[key]
+            if isinstance(value, list): # episode_number: [from, to]
+                value = "-".join(value)
+            value = prefix + value + suffix
+            info.append(self.colored(value, colour))
+
+        return " ".join(info)
+
+    @staticmethod
+    def colored(text: str, col: str | None = None) -> str:
+        if col is None:
+            return text
+        return f"[{col}]{text}[/{col}]"
+
+    def top_results(self) -> list:
+        """Returns 'show_at_once' results from the current page"""
+        page_start_ix = self.curr_page * self.show_at_once
+        page_end_ix = page_start_ix + self.show_at_once
+        return self.results[page_start_ix:page_end_ix]
+
+    def play_torrent(self, torrent_num: int, player: str = "mpv") -> None:
+        if not self.results or not self.is_webtorrent_installed():
             return
+        torrent_num -= 1
         magnet_link = self.results[torrent_num]["magnet"]
         path = f"-o {self.download_path}" if self.download_path else ""
         os.system(f'webtorrent "{magnet_link}" --not-on-top --{player} {path}')
 
-    def set_page(self, page_num: int):
-        page_num -= 1
-        if page_num < 0:
-            self.curr_page = 0
-        elif page_num * self.show_at_once > len(self.results):
-            self.curr_page = (len(self.results) - 1) // self.show_at_once
-        else:
-            self.curr_page = page_num
+    def get_download_path(self) -> str:
+        return self.download_path
 
-    def get_download_path(self):
-        if self.download_path == "":
-            return "Default (depends on the OS)"
-        else:
-            return self.download_path
-
-    def set_download_path(self, path):
+    def set_download_path(self, path: str) -> bool:
+        """Returns True if set, False if not set."""
+        if not os.path.exists(path):
+            return False
         self.download_path = path
         with config.open(encoding="utf-8-sig") as f:
             content = json.load(f)
         content["download_path"] = self.download_path
         with config.open("w") as f:
             json.dump(content, f)
+        return True
+
+    def next_page(self) -> None:
+        if self.curr_page < self.get_page_count():
+            self.curr_page += 1
+
+    def prev_page(self) -> None:
+        if self.curr_page > 0:
+            self.curr_page -= 1
+
+    def get_page_count(self) -> int:
+        return len(self.results) // self.show_at_once
