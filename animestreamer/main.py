@@ -20,6 +20,7 @@ class AnimeStreamer(App):
         await self.bind("h", "toggle_help", "Help")
         await self.bind("enter", "enter", "Focus form / Confirm")
         await self.bind("escape", "escape", "Defocus")
+        await self.bind("ctrl+i", "escape", "Defocus")
         await self.bind("r", "reverse", "Reverse sort")
         await self.bind("o", "parse", "Toggle parsed Torrents")
         await self.bind("left", "left")
@@ -79,9 +80,9 @@ class AnimeStreamer(App):
 
     async def action_enter(self):
         """Focuses form or searches Torrent"""
-        if self.search_input.has_focus and self.search_input.highlighted:
+        if self.search_input.has_focus:
             await self.search()
-        elif self.path_input.has_focus and self.path_input.highlighted:
+        elif self.path_input.has_focus:
             if not self.path_input.set_path():
                 await self.action_bell()
         elif self.torrent_results.focused:
