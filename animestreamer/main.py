@@ -1,5 +1,4 @@
 from __future__ import annotations
-from logging import PlaceHolder
 
 from textual.app import App
 from textual.reactive import Reactive
@@ -22,6 +21,7 @@ class AnimeStreamer(App):
         await self.bind("enter", "enter", "Focus form / Confirm")
         await self.bind("escape", "escape", "Defocus")
         await self.bind("r", "reverse", "Reverse sort")
+        await self.bind("o", "parse", "Toggle parsed Torrents")
         await self.bind("left", "left")
         await self.bind("right", "right")
         await self.bind("down", "down")
@@ -150,11 +150,14 @@ class AnimeStreamer(App):
             return
         self.torrent_results.play_torrent()
         self.refresh()
-    
+
     async def action_escape(self):
         self.search_input.set_current_search()
         self.path_input.set_current_path()
         await self.set_focus(None)
+
+    async def action_parse(self):
+        self.torrent_results.toggle_parse()
 
 
 def run():

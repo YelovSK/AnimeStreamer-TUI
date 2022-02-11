@@ -2,6 +2,7 @@
 import os
 import json
 import appdirs
+import anitopy
 from shutil import which
 from pathlib import Path
 
@@ -27,7 +28,7 @@ class AnimeStreamer:
         self.nyaa = Nyaa
         self.show_at_once = 10
         self.curr_page = 0
-        self.pages = 4  # number of pages searched (75 results per page)
+        self.pages = 6  # number of pages searched (75 results per page)
         with config.open(encoding="utf-8-sig") as f:
             self.download_path = json.load(f)["download_path"]
 
@@ -64,7 +65,7 @@ class AnimeStreamer:
             sort_lambda = lambda d: int(d[key])
         self.results = sorted(self.results, key=sort_lambda, reverse=reverse)
 
-    def get_results_table(self, selected: int) -> Table:
+    def get_results_table(self, selected: int, parsed: bool) -> Table:
         """Returns a table of torrents from the current page."""
         table = Table()
         if not self.results:
@@ -76,16 +77,48 @@ class AnimeStreamer:
         table.add_column("Date")
         for i, res in enumerate(self.top_results()):
             num = i + 1 + (self.curr_page * self.show_at_once)
+            title = self.parse_torrent(res["name"]) if parsed else res["name"]
             if i + 1 == selected:
-                torrent_name = f"[bold red]{res['name']}[/bold red]"
+                torrent_name = self.colored(title, "bold red")
             else:
-                torrent_name = res["name"]
+                torrent_name = title
             table.add_row(str(num), torrent_name, res["size"], res["seeders"], res["date"])
         return table
 
+    def parse_torrent(self, name: str) -> str:
+        parsed = anitopy.parse(name)
+        keys = {    # key: (colour, prefix, suffix)
+            "anime_title": (None, "", ""),
+            "anime_season": ("yellow", "[S", "]"),
+            "episode_number": ("yellow", "[E", "]"),
+            "video_resolution": ("green", "[", "]"),
+            "video_term": ("green", "[", "]"),
+            "release_group": ("blue", "[", "]")
+        }
+        info = []
+        for key, formatting in keys.items():
+            if key not in parsed:
+                continue
+            colour, prefix, suffix = formatting
+            value = parsed[key]
+            if isinstance(value, list): # episode_number: [from, to]
+                value = "-".join(value)
+            value = prefix + value + suffix
+            info.append(self.colored(value, colour))
+
+        return " ".join(info)
+
+    @staticmethod
+    def colored(text: str, col: str | None = None) -> str:
+        if col is None:
+            return text
+        return f"[{col}]{text}[/{col}]"
+
     def top_results(self) -> list:
         """Returns 'show_at_once' results from the current page"""
-        return self.results[self.curr_page * self.show_at_once:self.curr_page * self.show_at_once + self.show_at_once]
+        page_start_ix = self.curr_page * self.show_at_once
+        page_end_ix = page_start_ix + self.show_at_once
+        return self.results[page_start_ix:page_end_ix]
 
     def play_torrent(self, torrent_num: int, player: str = "mpv") -> None:
         if not self.results or not self.is_webtorrent_installed():
