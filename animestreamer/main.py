@@ -20,7 +20,7 @@ class AnimeStreamer(App):
         await self.bind("h", "toggle_help", "Help")
         await self.bind("enter", "enter", "Focus form / Confirm")
         await self.bind("escape", "escape", "Defocus")
-        await self.bind("ctrl+i", "escape", "Defocus")
+        await self.bind("ctrl+i", "escape", "Defocus")  # tab for Windows (escape broken in textual)
         await self.bind("r", "reverse", "Reverse sort")
         await self.bind("o", "parse", "Toggle parsed Torrents")
         await self.bind("left", "left")
