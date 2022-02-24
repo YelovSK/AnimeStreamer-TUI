@@ -8,15 +8,12 @@ class Help(CustomWidget):
     def render(self) -> Panel:
         help_list = (
             "[b]H[/b] - toggles this sidebar",
-            "[b]left_arrow[/b] - previous page (if results focused)",
-            "[b]right_arrow[/b] - next page (if results focused)",
-            "[b]up_arrow[/b] - select previous form (green)",
-            "[b]down_arrow[/b] - select next form (green)",
-            "[b]ENTER[/b] - focus selected form (double line)",
-            "[b]TAB[/b] - remove focus from form",
+            "[b]Arrows[/b] - navigation",
+            "[b]Enter[/b] - confirm",
+            "[b]Esc/Tab[/b] - remove focus",
             "[b]R[/b] - reverse sorting order",
-            "[b]P[/b] - play selected torrent",
-            "[b]Q[/b] - quit application"
+            "[b]O[/b] - toggle title parsing",
+            "[b]Q[/b] - quit"
         )
         return Panel(
             "\n\n".join(help_list),
