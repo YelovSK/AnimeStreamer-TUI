@@ -3,9 +3,17 @@ from __future__ import annotations
 from textual.app import App
 from textual.reactive import Reactive
 
-from animestreamer.widgets import CustomHeader, Help, PathInput, Sort, TorrentInput, TorrentResults, CustomFooter
+from animestreamer.widgets import (
+    CustomHeader,
+    Help,
+    PathInput,
+    Sort,
+    TorrentInput,
+    TorrentResults,
+    CustomFooter,
+)
 from animestreamer import streamer
-
+import typer
 
 class AnimeStreamer(App):
     show_help = Reactive(False)
@@ -20,7 +28,9 @@ class AnimeStreamer(App):
         await self.bind("h", "toggle_help", "Help")
         await self.bind("enter", "enter", "Focus form / Confirm")
         await self.bind("escape", "escape", "Defocus")
-        await self.bind("ctrl+i", "escape", "Defocus")  # tab for Windows (escape broken in textual)
+        await self.bind(
+            "ctrl+i", "escape", "Defocus"
+        )  # tab for Windows (escape broken in textual)
         await self.bind("r", "reverse", "Reverse sort")
         await self.bind("o", "parse", "Toggle parsed Torrents")
         await self.bind("left", "left")
@@ -32,7 +42,12 @@ class AnimeStreamer(App):
         """On startup"""
         await self.create_forms()
         await self.create_layout()
-        self.forms = (self.search_input, self.sorting, self.path_input, self.torrent_results)
+        self.forms = (
+            self.search_input,
+            self.sorting,
+            self.path_input,
+            self.torrent_results,
+        )
         await self.enter_current_form()
 
     async def on_resize(self, event) -> None:
@@ -49,14 +64,12 @@ class AnimeStreamer(App):
         """Creates forms"""
         self.torrent_results = TorrentResults()
         self.search_input = TorrentInput(
-            name="Find torrents",
-            placeholder="<torrent_name>",
-            title="Find torrents"
+            name="Find torrents", placeholder="<torrent_name>", title="Find torrents"
         )
         self.path_input = PathInput(
             name="Download path",
             value=streamer.get_download_path(),
-            title="Download path"
+            title="Download path",
         )
         self.sorting = Sort()
         self.help_bar = Help(focusable=False)
@@ -65,7 +78,9 @@ class AnimeStreamer(App):
         """Puts forms into layout"""
         await self.view.dock(CustomHeader(), edge="top")
         await self.view.dock(CustomFooter(), edge="bottom")
-        await self.view.dock(self.search_input, self.sorting, self.path_input, edge="top", size=3)
+        await self.view.dock(
+            self.search_input, self.sorting, self.path_input, edge="top", size=3
+        )
         await self.view.dock(self.torrent_results, edge="top")
         help_size = 40
         await self.view.dock(self.help_bar, edge="left", size=help_size, z=1)
@@ -149,7 +164,7 @@ class AnimeStreamer(App):
         if not streamer.is_webtorrent_installed():
             await self.action_bell()
             return
-        self.torrent_results.play_torrent()
+        self.torrent_results.play_torrent(streamer.get_player())
         self.refresh()
 
     async def action_escape(self):
@@ -161,8 +176,13 @@ class AnimeStreamer(App):
         self.torrent_results.toggle_parse()
 
 
-def run():
+def main(player: str = "mpv"):
+    streamer.set_player(player)
     AnimeStreamer.run()
+
+
+def run():
+    typer.run(main)
 
 
 if __name__ == "__main__":

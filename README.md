@@ -19,6 +19,16 @@ Python packages are automatically installed when installing PyPI package. List c
 1. `pip install animestreamer` - [PyPI package](https://pypi.org/project/animestreamer/)
 2. `animestreamer`
 
+Alternatively, you can use `pipx` to install this application:
+
+```bash
+pipx install animestreamer
+```
+
 ## Usage
 
-TODO
+You can set the default download path/player in `~/.config/animestreamer/config.json`.
+
+You can also pass `--player` argument to temporarily set the player.
+
+Available players are listed in the [webtorrent readme](https://github.com/webtorrent/webtorrent-cli).
