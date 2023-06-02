@@ -6,7 +6,7 @@ import anitopy
 from shutil import which
 from pathlib import Path
 
-from NyaaPy import Nyaa
+from NyaaPy.nyaa import Nyaa
 
 from rich.console import Console
 from rich.table import Table
@@ -25,7 +25,7 @@ class AnimeStreamer:
     def __init__(self) -> None:
         self.console = Console()
         self.results = []
-        self.nyaa = Nyaa
+        self.nyaa = Nyaa()
         self.show_at_once = 10
         self.curr_page = 0
         self.pages = 6  # number of pages searched (75 results per page)
@@ -44,13 +44,13 @@ class AnimeStreamer:
         ids = set()
         to_remove = []
         for r in self.results:
-            if r["id"] in ids:
+            if r.id in ids:
                 to_remove.append(r)
-            ids.add(r["id"])
+            ids.add(r.id)
         for r in to_remove:
             self.results.remove(r)
 
-    def sort_results(self, key: str, reverse: bool = False) -> None:
+    def sort_results(self, key: str = "date", reverse: bool = False) -> None:
         """keys: seeders, date, size, completed_downloads, leechers"""
         if key == "size":
             size_dict = {
@@ -58,11 +58,11 @@ class AnimeStreamer:
                 "MiB": 1_000,
                 "GiB": 1_000_000
             }
-            sort_lambda = lambda d: size_dict[d[key].split()[1]] * float(d[key].split()[0])
+            sort_lambda = lambda d: size_dict[d.size.split()[1]] * float(d.size.split()[0])
         elif key == "date":
-            sort_lambda = lambda d: d[key]
+            sort_lambda = lambda d: d.date
         else:
-            sort_lambda = lambda d: int(d[key])
+            sort_lambda = lambda d: int(getattr(d, key))
         self.results = sorted(self.results, key=sort_lambda, reverse=reverse)
 
     def get_results_table(self, selected: int, parsed: bool) -> Table:
@@ -77,12 +77,12 @@ class AnimeStreamer:
         table.add_column("Date")
         for i, res in enumerate(self.top_results()):
             num = i + 1 + (self.curr_page * self.show_at_once)
-            title = self.parse_torrent(res["name"]) if parsed else res["name"]
+            title = self.parse_torrent(res.name) if parsed else res.name
             if i + 1 == selected:
                 torrent_name = self.colored(title, "bold red")
             else:
                 torrent_name = title
-            table.add_row(str(num), torrent_name, res["size"], res["seeders"], res["date"])
+            table.add_row(str(num), torrent_name, res.size, res.seeders, res.date)
         return table
 
     def parse_torrent(self, name: str) -> str:
@@ -124,7 +124,7 @@ class AnimeStreamer:
         if not self.results or not self.is_webtorrent_installed():
             return
         torrent_num -= 1
-        magnet_link = self.results[torrent_num]["magnet"]
+        magnet_link = self.results[torrent_num].magnet
         path = f"-o {self.download_path}" if self.download_path else ""
         os.system(f'webtorrent "{magnet_link}" --not-on-top --{player} {path}')
 
