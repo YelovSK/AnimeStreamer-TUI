@@ -2,3 +2,4 @@
 .*
 *.bat
 __pycache__
+*.egg-info/

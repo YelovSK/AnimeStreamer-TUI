@@ -30,7 +30,9 @@ class AnimeStreamer:
         self.curr_page = 0
         self.pages = 6  # number of pages searched (75 results per page)
         with config.open(encoding="utf-8-sig") as f:
-            self.download_path = json.load(f)["download_path"]
+            conf = json.load(f)
+            self.download_path = conf["download_path"]
+            self.player = conf["player"]
 
     @staticmethod
     def is_webtorrent_installed() -> bool:
@@ -130,6 +132,12 @@ class AnimeStreamer:
 
     def get_download_path(self) -> str:
         return self.download_path
+
+    def get_player(self) -> str:
+        return self.player
+    
+    def set_player(self, player: str) -> None:
+        self.player = player
 
     def set_download_path(self, path: str) -> bool:
         """Returns True if set, False if not set."""

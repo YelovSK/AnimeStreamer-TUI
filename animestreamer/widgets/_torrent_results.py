@@ -22,9 +22,9 @@ class TorrentResults(CustomWidget):
             **self.get_style()
         )
 
-    def play_torrent(self):
+    def play_torrent(self, player: str):
         torrent_num = self.selected_torrent + (streamer.curr_page * streamer.show_at_once)
-        streamer.play_torrent(torrent_num)
+        streamer.play_torrent(torrent_num, player)
 
     def toggle_parse(self):
         self.parsed = not self.parsed
